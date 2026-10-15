@@ -1,0 +1,38 @@
+name: 'Zero Match Guard'
+description: 'Fail a check that examined nothing, instead of letting it report PASS.'
+branding:
+  icon: 'alert-triangle'
+  color: 'orange'
+
+inputs:
+  run:
+    description: 'The check command to wrap, e.g. ./scan.sh build/'
+    required: true
+  paths:
+    description: 'Glob the wrapped check is expected to touch, e.g. "dist/**/*.js"'
+    required: false
+    default: ''
+  min-count:
+    description: 'Minimum number of files the glob must match'
+    required: false
+    default: '1'
+  count-from:
+    description: >-
+      Regex reading the count the check prints about itself,
+      e.g. "files scanned: (\\d+)". Use instead of paths.
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Guard the wrapped check
+      shell: bash
+      run: |
+        set -o pipefail
+        GUARD="${{ github.action_path }}/zero_match_guard.py"
+        if [ -n "${{ inputs.count-from }}" ]; then
+          python "$GUARD" --count-from "${{ inputs.count-from }}" -- ${{ inputs.run }}
+        else
+          python "$GUARD" --paths "${{ inputs.paths }}" --min-count "${{ inputs.min-count }}" -- ${{ inputs.run }}
+        fi
