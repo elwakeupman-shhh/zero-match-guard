@@ -1,0 +1,44 @@
+name: action-selftest
+
+# Proves the action actually blocks, in CI, on every push.
+# A verification step that examined nothing must FAIL. If it passes, this workflow fails.
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  blocks-an-empty-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard a check whose glob matches nothing (expected to fail)
+        id: guard
+        continue-on-error: true
+        uses: ./
+        with:
+          run: echo "pretending to scan"
+          paths: 'no/such/dir/*.mp4'
+
+      - name: Assert the guard blocked it
+        shell: bash
+        run: |
+          echo "guard outcome = ${{ steps.guard.outcome }}"
+          if [ "${{ steps.guard.outcome }}" != "failure" ]; then
+            echo "FAIL: the guard let a zero-file check through"
+            exit 1
+          fi
+          echo "OK: zero-file check was blocked, which is the whole point"
+
+  passes-a-real-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard a check whose glob matches real files (expected to pass)
+        uses: ./
+        with:
+          run: echo "scanned the repo"
+          paths: '*.py'
